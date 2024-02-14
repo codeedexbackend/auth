@@ -2,11 +2,10 @@ from requests import Response
 from rest_framework import serializers, status
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.views import APIView
+from django.contrib.auth import get_user_model
 
-from .models import User, Category, Product, UserProfile, carousel, UserDetails
+from .models import User, Category, Product, UserProfile, carousel, UserDetails, PasswordResetUser
 
-# from django.contrib.auth.forms import PasswordChangeForm,PasswordResetConfirmForm
-from twilio.rest import Client
 
 
 
@@ -120,19 +119,30 @@ class ResetPasswordEmailRequestSerializer(serializers.Serializer):
         fields = ['email']
 
 
-class PasswordOTPVerificationSerializer(serializers.Serializer):
-    otp = serializers.CharField(min_length=6, write_only=True)
 
-    def validate(self, attrs):
-        try:
-            otp = attrs.get('otp')
+User = get_user_model()
 
-            # Check if the provided OTP matches the one sent to the user
-            if self.context['request'].user.profile.otp != otp:
-                raise AuthenticationFailed('Invalid OTP', 401)
+class PasswordResetSerializer(serializers.Serializer):
+    email = serializers.EmailField()
 
-            # OTP is valid, you might want to perform additional actions here if needed
 
-            return {'message': 'OTP verified successfully'}
-        except Exception as e:
-            raise AuthenticationFailed('Invalid request', 401)
+
+class PassOTPVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp = serializers.CharField(min_length=6)
+
+class ChangePasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    new_password = serializers.CharField(write_only=True)
+    confirm_new_password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        email = data.get('email')
+        new_password = data.get('new_password')
+        confirm_new_password = data.get('confirm_new_password')
+
+        if new_password != confirm_new_password:
+            raise serializers.ValidationError("New password and confirm new password do not match.")
+        
+        return data
+
