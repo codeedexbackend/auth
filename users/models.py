@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, Group, Permission,BaseUserManager,AbstractBaseUser,PermissionsMixin
 from django.utils.translation import gettext_lazy as _
+import uuid
 
 
 # Create your models here.
@@ -54,12 +55,31 @@ class Category(models.Model):
     Category_Name = models.CharField(max_length=100)
 
 class Product(models.Model):
+    product_id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     Product_Name = models.CharField(max_length=100)
     Description = models.CharField(max_length=100)
     Product_Image = models.ImageField(upload_to="profile")
-    Product_Category = models.CharField(max_length=100)
+    Product_Category = models.ForeignKey(Category, on_delete=models.CASCADE)
     Price = models.IntegerField(null=True)
-    Size = models.CharField(max_length=100,default='size')
+
+    SIZE_CHOICES = [
+        ('small', 'Small'),
+        ('medium', 'Medium'),
+        ('large', 'Large'),
+        ('xl', 'XL'),
+    ]
+    Size = models.CharField(max_length=10, choices=SIZE_CHOICES)
+
+    COLOR_CHOICES = [
+        ('red', 'Red'),
+        ('blue', 'Blue'),
+        ('green', 'Green'),
+        ('yellow', 'Yellow'),
+    ]
+    Color = models.CharField(max_length=20, choices=COLOR_CHOICES)
+
+    def _str_(self):
+        return str(self.id)
 
 
 class UserProfile(models.Model):
@@ -82,6 +102,14 @@ class UserDetails(models.Model):
     city = models.CharField(max_length=255)
     pincode = models.CharField(max_length=10)
 
+class CartItem(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
 
+    def save(self, *args, **kwargs):
+        self.total_price = self.product.price * self.quantity
+        super().save(*args, **kwargs)
 
 
