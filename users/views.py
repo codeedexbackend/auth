@@ -19,9 +19,9 @@ from django.utils.encoding import force_bytes, DjangoUnicodeDecodeError, force_s
 
 from rest_framework.response import Response
 from django.core.mail import send_mail
-from rest_framework import status, generics
+from rest_framework import status, generics,permissions
 from rest_framework.exceptions import AuthenticationFailed
-from .serializers import UserSerializer, CategorySerializer, ProductSerializer, OTPVerificationSerializer,carouselserializer, UserProfileSerializer, PasswordResetSerializer,PassOTPVerificationSerializer,ChangePasswordSerializer
+from .serializers import UserSerializer, CategorySerializer, ProductSerializer, OTPVerificationSerializer,carouselserializer, UserProfileSerializer, PasswordResetSerializer,PassOTPVerificationSerializer,ChangePasswordSerializer,ProductByCategorySerializer,CartItemSerializer
 from .models import User, Category, Product, carousel, UserDetails
 
 
@@ -37,6 +37,10 @@ from django.views import View
 from django.http import Http404, HttpResponseRedirect
 
 from .utils import generate_otp, send_otp_email
+from rest_framework.pagination import PageNumberPagination
+from django_filters.rest_framework import DjangoFilterBackend
+from .filters import ProductFilter
+from .permissions import IsOwnerOrReadOnly
 
 
 # Create your views here.
@@ -187,19 +191,52 @@ class CategoryView(APIView):
         return Response(serializer.data)
 
 
+
+class CustomPageNumberPagination(PageNumberPagination):
+    page_size = 10  # Number of items per page
+    page_size_query_param = 'page_size'
+    max_page_size = 1000
+
+
 class ProductView(APIView):
-    def get(self,request):
+    pagination_class = CustomPageNumberPagination  # Add this line for pagination
+
+    def get(self, request):
         product = Product.objects.all()
-        serializer = ProductSerializer(product,many=True)
+        paginator = self.pagination_class()
+        result_page = paginator.paginate_queryset(product, request)
+        serializer = ProductSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+    def post(self, request):
+        serializer = ProductSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(serializer.data)
 
+class ProductByCategoryView(generics.ListAPIView):
+    serializer_class = ProductByCategorySerializer
+    pagination_class = CustomPageNumberPagination  # Add this line for pagination
 
-    def post(self,request):
-        serilaizer = ProductSerializer(data=request.data)
-        serilaizer.is_valid(raise_exception=True)
-        serilaizer.save()
-        return Response(serilaizer.data)
+    def get_queryset(self):
+        category_id = self.kwargs['category_id']
+        return Product.objects.filter(Product_Category=category_id)
 
+    def get(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        paginator = self.pagination_class()
+        result_page = paginator.paginate_queryset(queryset, request)
+        serializer = self.serializer_class(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+
+
+class ProductSearchView(generics.ListAPIView):
+    serializer_class = ProductSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = ProductFilter
+
+    def get_queryset(self):
+        return Product.objects.all()
 
 class carouselview(APIView):
     def post(self,request):
@@ -309,14 +346,11 @@ class ChangePasswordView(generics.GenericAPIView):
         return Response({'detail': 'Password changed successfully.', 'status': True}, status=status.HTTP_200_OK)
 
     
+class CartItemCreateView(generics.CreateAPIView):
+    serializer_class = CartItemSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrReadOnly]
 
-# class DeliveryZoneListAPIView(generics.ListAPIView):
-#     queryset = DeliveryZone.objects.all()
-#     serializer_class = DeliveryZoneSerializer
-
-#     def get_queryset(self):
-#         postal_code = self.request.query_params.get('postal_code', None)
-#         if postal_code:
-#             return DeliveryZone.objects.filter(is_postal_code_in_zone(postal_code))
-#         return DeliveryZone.objects.all()
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
  

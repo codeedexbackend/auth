@@ -41,11 +41,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'django_otp',
+    'django_filters',
     'rest_framework_simplejwt',
     'corsheaders',
     'users',
     'Dashboard',
     'django_rest_passwordreset',
+    
     # 'users.apps.UsersConfig',
 
 ]

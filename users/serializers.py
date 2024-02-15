@@ -4,7 +4,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 
-from .models import User, Category, Product, UserProfile, carousel, UserDetails, PasswordResetUser
+from .models import User, Category, Product, UserProfile, carousel, UserDetails, PasswordResetUser,CartItem
 
 
 
@@ -70,6 +70,7 @@ class OTPVerificationSerializer(serializers.Serializer):
             raise serializers.ValidationError("Invalid OTP.")
 
         return data
+
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
@@ -78,11 +79,16 @@ class CategorySerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ['Product_Name', 'Description', 'Product_Image', 'Product_Category', 'Price', 'Size']
+        fields = ['product_id','Product_Name', 'Description', 'Product_Image', 'Product_Category', 'Price', 'Size','Color']
 
 
 
+class ProductByCategorySerializer(serializers.ModelSerializer):
+    Product_Category = serializers.StringRelatedField()
 
+    class Meta:
+        model = Product
+        fields = ['Product_Name', 'Description', 'Product_Image', 'Product_Category', 'Price', 'Size', 'Color']
 
 
 
@@ -146,3 +152,10 @@ class ChangePasswordSerializer(serializers.Serializer):
         
         return data
 
+
+class CartItemSerializer(serializers.ModelSerializer):
+    product = ProductSerializer()
+
+    class Meta:
+        model = CartItem
+        fields = '__all__'
